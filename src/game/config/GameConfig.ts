@@ -1,4 +1,7 @@
 import Phaser from 'phaser';
+import { Boot } from '@/game/scenes/Boot';
+import { Preloader } from '@/game/scenes/Preloader';
+import { MainMenu } from '@/game/scenes/MainMenu';
 import { GameScene } from '@/game/scenes/GameScene';
 
 export const getGameConfig = (parent: string): Phaser.Types.Core.GameConfig => ({
@@ -15,13 +18,6 @@ export const getGameConfig = (parent: string): Phaser.Types.Core.GameConfig => (
         pixelArt: false,
         powerPreference: 'high-performance'
     },
-    // physics: {
-    //     default: 'arcade',
-    //     arcade: {
-    //         debug: process.env.NODE_ENV === 'development',
-    //         gravity: { y: 0, x: 0 }
-    //     }
-    // },
     physics: {
         default: 'arcade',
         arcade: {
@@ -31,6 +27,6 @@ export const getGameConfig = (parent: string): Phaser.Types.Core.GameConfig => (
         }
     },
     backgroundColor: '#000000',
-    scene: [GameScene],
+    scene: [Boot, Preloader, MainMenu, GameScene],
     disableContextMenu: true,
 });
