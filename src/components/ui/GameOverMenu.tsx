@@ -1,61 +1,60 @@
 import React, { useEffect, useState } from 'react';
 import { EventBus, GameEvents } from '@/game/events/EventBus';
+import { useUIStore } from '@/store/useUIStore';
+import { AdManager } from '@/game/systems/AdManager';
 
-export const GameOverMenu: React.FC = () => {
-  const [isVisible, setIsVisible] = useState(false);
-  const [score, setScore] = useState(0);
-  const [canRevive, setCanRevive] = useState(true);
+interface GameOverProps {
+  score: number;
+  canRevive: boolean;
+}
+
+export const GameOverMenu: React.FC<GameOverProps> = ({ score, canRevive }) => {
+  const setScreen = useUIStore((state) => state.setScreen);
+  const [isAdAvailable, setIsAdAvailable] = useState(AdManager.isRewardedReady);
 
   useEffect(() => {
-    const onGameOver = (data: { score: number; canRevive: boolean }) => {
-      setScore(data.score);
-      setCanRevive(data.canRevive);
-      setIsVisible(true);
-    };
+    const handleAdChange = (ready: boolean) => setIsAdAvailable(ready);
+    EventBus.on(GameEvents.AD_AVAILABILITY_CHANGED, handleAdChange);
 
-    EventBus.on(GameEvents.GAME_OVER, onGameOver);
-
-    return () => {
-      EventBus.off(GameEvents.GAME_OVER, onGameOver);
-    };
+    return () => EventBus.off(GameEvents.AD_AVAILABILITY_CHANGED, handleAdChange);
   }, []);
 
-  const handleRestart = () => {
-    setIsVisible(false);
+  const onRestart = () => {
+    setScreen('playing'); // Volta a tela para o jogo
     EventBus.emit(GameEvents.REQUEST_RESTART);
   };
 
-  const handleRevive = () => {
-    setIsVisible(false);
+  const onRevive = () => {
+    setScreen('playing'); // Volta a tela para o jogo
     EventBus.emit(GameEvents.REQUEST_REVIVE);
   };
 
-  if (!isVisible) return null;
-
   return (
-    <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center z-[100] p-6 text-center">
-      <h1 className="text-red-600 text-5xl font-bold font-mono tracking-tighter mb-4">
-        QUEDA LIVRE!
-      </h1>
+    <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-center p-6 backdrop-blur-sm">
+      <h1 className="text-red-500 text-6xl font-bold mb-4 drop-shadow-lg">QUEDA LIVRE!</h1>
 
-      <div className="mb-10">
-        <p className="text-gray-400 font-mono text-sm uppercase tracking-widest">Altura Alcançada</p>
-        <p className="text-white text-4xl font-mono font-bold">{score}m</p>
+      <div className="mb-8">
+        <p className="text-gray-400 text-sm tracking-widest uppercase">Altura</p>
+        <p className="text-white text-4xl font-bold">{score}m</p>
       </div>
 
-      <div className="flex flex-col gap-4 w-full max-w-xs">
+      <div className="flex flex-col gap-4">
         {canRevive && (
           <button
-            onClick={handleRevive}
-            className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold font-mono py-4 rounded-lg shadow-lg active:scale-95 transition-all"
+            onClick={onRevive}
+            disabled={!isAdAvailable}
+            className={`font-bold py-4 px-8 rounded-lg transition-all ${isAdAvailable
+              ? "bg-yellow-500 hover:bg-yellow-400 text-black shadow-lg"
+              : "bg-gray-600 text-gray-400 cursor-not-allowed opacity-50"
+              }`}
           >
-            ASSISTIR PARA REVIVER
+            {isAdAvailable ? "ASSISTIR PARA REVIVER" : "ANÚNCIO INDISPONÍVEL"}
           </button>
         )}
 
         <button
-          onClick={handleRestart}
-          className="border-2 border-white/20 hover:border-white text-white font-mono py-4 rounded-lg active:scale-95 transition-all"
+          onClick={onRestart}
+          className="border-2 border-white/30 text-white hover:bg-white/10 py-4 px-8 rounded-lg active:scale-95 transition-all"
         >
           NOVA TENTATIVA
         </button>

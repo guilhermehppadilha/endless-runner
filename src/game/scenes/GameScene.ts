@@ -1,8 +1,9 @@
 import { Scene } from 'phaser';
 import { EventBus, GameEvents, IScorePayload } from '@/game/events/EventBus';
 import { PokiService } from '@/game/systems/PokiService';
-import { Climber } from '../objects/Climber';
-import { RockSpawner } from '../objects/RockSpawner';
+import { Climber } from '@/game/objects/Climber';
+import { RockSpawner } from '@/game/objects/RockSpawner';
+import { AdManager } from '../systems/AdManager';
 
 export class GameScene extends Scene {
     private climber!: Climber;
@@ -31,51 +32,68 @@ export class GameScene extends Scene {
 
         const { width, height } = this.scale;
 
-        // Fundo com Parallax
+        // Fundo infinito
         this.mountainBg = this.add.tileSprite(width / 2, height / 2, width, height, 'mountain');
 
-        // Instancia os elementos do jogo
+        // Inicialização dos objetos
         this.climber = new Climber(this, height - 150);
         this.spawner = new RockSpawner(this, this.gameSpeed);
 
-        // Colisão principal (Alpinista vs Pedras)
-        this.physics.add.overlap(this.climber, this.spawner.getGroup(), this.handleGameOver, undefined, this);
+        // Configuração de Colisão
+        this.physics.add.overlap(
+            this.climber,
+            this.spawner.getGroup(),
+            this.handleGameOver,
+            undefined,
+            this
+        );
 
         this.setupInputs();
 
-        // Escuta comandos da UI (React -> Phaser)
         EventBus.on(GameEvents.REQUEST_RESTART, this.restartGame, this);
+
         EventBus.on(GameEvents.REQUEST_REVIVE, this.reviveGame, this);
 
+        EventBus.on(GameEvents.PAUSE_GAME, () => {
+            this.isGameOver = true;
+            this.physics.pause();
+        });
+
+        EventBus.on(GameEvents.RESUME_GAME, () => {
+            this.isGameOver = false;
+            this.physics.resume();
+        });
+
         this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            EventBus.off(GameEvents.PAUSE_GAME);
+            EventBus.off(GameEvents.RESUME_GAME);
             EventBus.off(GameEvents.REQUEST_RESTART, this.restartGame, this);
             EventBus.off(GameEvents.REQUEST_REVIVE, this.reviveGame, this);
         });
 
-        // Notifica o Poki e a UI que a cena está pronta
+
         PokiService.gameplayStart();
         EventBus.emit(GameEvents.SCENE_READY, this);
     }
 
     private setupInputs() {
-        const cursors = this.input.keyboard?.createCursorKeys();
-        cursors?.left.on('down', () => this.climber.moveLeft());
-        cursors?.right.on('down', () => this.climber.moveRight());
+        // Teclado
+        this.input.keyboard?.on('keydown-LEFT', () => this.climber.moveLeft());
         this.input.keyboard?.on('keydown-A', () => this.climber.moveLeft());
+        this.input.keyboard?.on('keydown-RIGHT', () => this.climber.moveRight());
         this.input.keyboard?.on('keydown-D', () => this.climber.moveRight());
 
-        this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-            this.pointerDownX = pointer.x;
-            this.pointerDownY = pointer.y;
+        // Touch/Swipe
+        this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+            this.pointerDownX = p.x;
+            this.pointerDownY = p.y;
         });
 
-        this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
             if (this.isGameOver) return;
-            const deltaX = pointer.x - this.pointerDownX;
-            const deltaY = pointer.y - this.pointerDownY;
-            const swipeThreshold = 40;
-
-            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > swipeThreshold) {
+            const deltaX = p.x - this.pointerDownX;
+            const deltaY = p.y - this.pointerDownY;
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
                 if (deltaX < 0) this.climber.moveLeft();
                 else this.climber.moveRight();
             }
@@ -88,12 +106,9 @@ export class GameScene extends Scene {
         this.mountainBg.tilePositionY -= (this.gameSpeed * delta) / 1000;
         this.spawner.update(time);
 
-        // Atualização de Score enviada para o React
         this.score += delta * 0.015;
-        const scorePayload: IScorePayload = { score: Math.floor(this.score) };
-        EventBus.emit(GameEvents.SCORE_UPDATED, scorePayload);
+        EventBus.emit(GameEvents.SCORE_UPDATED, { score: Math.floor(this.score) } as IScorePayload);
 
-        // Progressão de dificuldade
         this.gameSpeed += delta * 0.005;
         this.spawner.setSpeed(this.gameSpeed);
     }
@@ -104,24 +119,21 @@ export class GameScene extends Scene {
 
         this.physics.pause();
         this.climber.die();
-
         PokiService.gameplayStop();
 
-        // Abre o menu no React
         EventBus.emit(GameEvents.GAME_OVER, {
             score: Math.floor(this.score),
-            canRevive: !this.hasUsedRevive
+            canRevive: !this.hasUsedRevive && AdManager.isRewardedReady
         });
     }
 
     private async restartGame() {
-        await PokiService.commercialBreak();
+        await AdManager.showCommercial();
         this.scene.restart();
     }
 
     private async reviveGame() {
-        const success = await PokiService.rewardedBreak();
-
+        const success = await AdManager.showRewarded();
         if (success) {
             this.hasUsedRevive = true;
             this.isGameOver = false;
@@ -136,19 +148,11 @@ export class GameScene extends Scene {
 
             this.spawner.getGroup().clear(true, true);
             this.physics.resume();
-
             PokiService.gameplayStart();
-        } else {
-            // Caso o vídeo falhe, mantém a tela de Game Over
-            EventBus.emit(GameEvents.GAME_OVER, {
-                score: Math.floor(this.score),
-                canRevive: false
-            });
         }
     }
 
     private generateTextures() {
-        // Marcadores de Hitbox Simplificados
         if (!this.textures.exists('climber')) {
             const g = this.add.graphics();
             g.lineStyle(2, 0x00ff00);
@@ -156,7 +160,6 @@ export class GameScene extends Scene {
             g.generateTexture('climber', 30, 50);
             g.destroy();
         }
-
         if (!this.textures.exists('rock')) {
             const g = this.add.graphics();
             g.lineStyle(2, 0xff0000);
@@ -164,7 +167,6 @@ export class GameScene extends Scene {
             g.generateTexture('rock', 40, 40);
             g.destroy();
         }
-
         if (!this.textures.exists('mountain')) {
             const g = this.add.graphics();
             g.fillStyle(0x111111);

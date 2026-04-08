@@ -6,7 +6,7 @@ import { PokiService } from './game/systems/PokiService';
 
 export const App: React.FC = () => {
     const [isPokiReady, setIsPokiReady] = useState(false);
-    
+
     useMobileAppLifecycle();
 
     useEffect(() => {
