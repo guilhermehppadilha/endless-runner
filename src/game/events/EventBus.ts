@@ -12,6 +12,7 @@ export enum GameEvents {
     REQUEST_RESTART = 'REQUEST_RESTART',
     REQUEST_REVIVE = 'REQUEST_REVIVE',
     AD_AVAILABILITY_CHANGED = 'AD_AVAILABILITY_CHANGED',
+    QUIT_TO_MENU = 'QUIT_TO_MENU',
 }
 
 export interface IScorePayload {

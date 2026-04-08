@@ -20,12 +20,12 @@ export const GameOverMenu: React.FC<GameOverProps> = ({ score, canRevive }) => {
   }, []);
 
   const onRestart = () => {
-    setScreen('playing'); // Volta a tela para o jogo
+    setScreen('PLAYING'); // Volta a tela para o jogo
     EventBus.emit(GameEvents.REQUEST_RESTART);
   };
 
   const onRevive = () => {
-    setScreen('playing'); // Volta a tela para o jogo
+    setScreen('PLAYING'); // Volta a tela para o jogo
     EventBus.emit(GameEvents.REQUEST_REVIVE);
   };
 
