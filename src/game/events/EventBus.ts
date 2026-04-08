@@ -11,6 +11,8 @@ export enum GameEvents {
     PAUSE_GAME = 'PAUSE_GAME',
     RESUME_GAME = 'RESUME_GAME',
     QUIT_TO_MENU = 'QUIT_TO_MENU',
+    REQUEST_RESTART = 'REQUEST_RESTART',
+    REQUEST_REVIVE = 'REQUEST_REVIVE',
 }
 
 export interface IScorePayload {

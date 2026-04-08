@@ -15,10 +15,18 @@ export const getGameConfig = (parent: string): Phaser.Types.Core.GameConfig => (
         pixelArt: false,
         powerPreference: 'high-performance'
     },
+    // physics: {
+    //     default: 'arcade',
+    //     arcade: {
+    //         debug: process.env.NODE_ENV === 'development',
+    //         gravity: { y: 0, x: 0 }
+    //     }
+    // },
     physics: {
         default: 'arcade',
         arcade: {
-            debug: process.env.NODE_ENV === 'development',
+            debug: true,
+            debugShowVelocity: false,
             gravity: { y: 0, x: 0 }
         }
     },
